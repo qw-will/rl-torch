@@ -1,13 +1,14 @@
-import collections
-import random
+from __future__ import annotations
+
+from enum import Enum
+from typing import Union
 
 import numpy as np
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
 
 from rl.rl import RLBase
-
 
 
 class QNet(nn.Module):
@@ -61,11 +62,12 @@ class DQN(RLBase):
         return action
 
     def learn(self, status, action, reward, status_new, **kwargs):
+        terminated, truncated = kwargs.get('terminated'), kwargs.get('truncated')
+
         states = torch.tensor(status, dtype=torch.float).to(self.device)
         actions = torch.tensor(action).view(-1, 1).to(self.device)
         rewards = torch.tensor(reward, dtype=torch.float).view(-1, 1).to(self.device)
         next_states = torch.tensor(status_new, dtype=torch.float).to(self.device)
-        terminated, truncated = kwargs.get('terminated'), kwargs.get('truncated')
         is_over = [1 if terminated or truncated else 0 for terminated, truncated in zip(terminated, truncated)]
         dones = torch.tensor(is_over, dtype=torch.float).view(-1, 1).to(self.device)
 

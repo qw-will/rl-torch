@@ -55,7 +55,7 @@ class QLearningTable(QLearningTableBase):
         status_new = self._format_observation(status_new)
         self.check_state_exist(status_new)
         q_predict = self.q_table.loc[status, action]
-        if status_new != 'terminal':
+        if kwargs.get('terminated') or kwargs.get("truncated"):
             q_target = reward + self.gamma * self.q_table.loc[status_new, :].max()  # next state is not terminal
         else:
             q_target = reward  # next state is terminal
@@ -67,14 +67,24 @@ class QLearningTable(QLearningTableBase):
 
 class SarsaTable(QLearningTableBase):
 
-    def learn(self, status, action, reward, status_new, action_todo, **kwargs):
+    def learn(self, status, action, reward, status_new, **kwargs):
+        """
+
+        @param status:
+        @param action:
+        @param reward:
+        @param status_new:
+        @param kwargs:
+          - action_todo: this param is required
+        @return:
+        """
         status = self._format_observation(status)
         status_new = self._format_observation(status_new)
         self.check_state_exist(status)
         self.check_state_exist(status_new)
-
+        action_todo = kwargs.get("action_todo")
         q_predict = self.q_table.loc[status, action]
-        if status_new != 'terminal':
+        if kwargs.get('terminated') or kwargs.get("truncated"):
             q_target = reward + self.gamma * self.q_table.loc[status_new, action_todo]  # next state is not terminal
         else:
             q_target = reward  # next state is terminal
@@ -94,12 +104,14 @@ class SarsaLambdaTable(QLearningTableBase):
         # also update eligibility trace
         # self.eligibility_trace = self.eligibility_trace.append(to_be_append)
 
-    def learn(self, status, action, reward, status_new, action_todo, **kwargs):
+    def learn(self, status, action, reward, status_new, **kwargs):
         status = self._format_observation(status)
         status_new = self._format_observation(status_new)
+        self.check_state_exist(status)
         self.check_state_exist(status_new)
+        action_todo = kwargs.get("action_todo")
         q_predict = self.q_table.loc[status, action]
-        if status_new != 'terminal':
+        if kwargs.get('terminated') or kwargs.get("truncated"):
             q_target = reward + self.gamma * self.q_table.loc[status_new, action_todo]  # next state is not terminal
         else:
             q_target = reward  # next state is terminal

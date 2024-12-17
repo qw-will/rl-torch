@@ -42,6 +42,7 @@ def qLearning():
             if observation_new == observation:
                 print('state not change')
             learner.learn(str(observation), action, reward, str(observation_new))
+            learner.learn(observation, action, reward, observation_new, terminated=terminated, truncated=truncated)
             observation = observation_new
             if terminated or truncated:
                 break
@@ -73,7 +74,7 @@ def sarsaLearning():
                 print('state not change')
 
             action_new = learner.choose_action(observation_new)
-            learner.learn(observation, action, reward, observation_new, action_new)
+            learner.learn(observation, action, reward, observation_new, action_new=action_new)
             observation, action = observation_new, action_new
             if terminated or truncated:
                 break

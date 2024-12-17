@@ -17,6 +17,18 @@ class RLBase(ABC):
 
     @abstractmethod
     def learn(self, status, action, reward, status_new, **kwargs):
+        """
+        learn function
+
+        @param status:
+        @param action:
+        @param reward:
+        @param status_new:
+        @param kwargs:
+          - terminated: x
+          - truncated: xx
+          - action_todo: xxx
+        """
         ...
 
     @classmethod
