@@ -31,10 +31,28 @@ class QNet(nn.Module):
         return self.net(x)
 
 
+class DQNType(Enum):
+    T_DQN = "dqn"
+    T_DoubleDQN = "doubledqn"
+    T_DuelingDQN = "duelingdqn"
+
+    @classmethod
+    def get_qdn_type(cls, qt: Union[str | DQNType]):
+        if isinstance(qt, DQNType):
+            return qt
+        else:
+            try:
+                return DQNType[qt]
+            except:
+                return DQNType.T_DQN
+
+
 class DQN(RLBase):
 
-    def __init__(self, input_dim, actions_space, learning_rate=0.001, reward_decay=0.9, e_greedy=0.98):
+    def __init__(self, input_dim, actions_space, learning_rate=0.001, reward_decay=0.9, e_greedy=0.98,
+                 dqn_type: str | DQNType = DQNType.T_DQN):
         super(DQN, self).__init__(actions_space, learning_rate, reward_decay, e_greedy)
+        self._dqn_type: DQNType = DQNType.get_qdn_type(dqn_type)
         self.input_dim = input_dim
         self.action_dim = action_dim = actions_space.n
 
@@ -75,7 +93,15 @@ class DQN(RLBase):
         predict = self.q_net(states)
         q_values = predict.gather(1, actions)
         # 下个状态的最大Q值
-        max_next_q_values = self.target_q_net(next_states).max(1)[0].view(-1, 1)
+        if self._dqn_type == DQNType.T_DQN:
+            max_action = self.q_net(next_states).max(1)[1].view(-1, 1)
+            max_next_q_values = self.target_q_net(next_states).gather(1, max_action)
+        elif self._dqn_type == DQNType.T_DuelingDQN:
+            # todo update this part
+            max_next_q_values = self.target_q_net(next_states).max(1)[0].view(-1, 1)
+        else:
+            max_next_q_values = self.target_q_net(next_states).max(1)[0].view(-1, 1)
+
         q_targets = rewards + self.gamma * max_next_q_values * (1 - dones)  # TD误差目标
 
         dqn_loss = torch.mean(F.mse_loss(q_values, q_targets))  # 均方误差损失函数
