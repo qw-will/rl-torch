@@ -31,33 +31,75 @@ class QNet(nn.Module):
         return self.net(x)
 
 
+class VAQNet(nn.Module):
+    def __init__(self, input_dim, action_dim):
+        super(VAQNet, self).__init__()
+        self._input_dim = input_dim
+        self._output_din = action_dim
+        dim_h1 = input_dim * 10
+        dim_h3 = action_dim * 10
+        dim_h2 = int((dim_h1 + dim_h3) / 2)
+
+        self.net = nn.Sequential(
+            nn.Flatten(), nn.Linear(in_features=input_dim, out_features=dim_h1), nn.ReLU(),
+            nn.Linear(in_features=dim_h1, out_features=dim_h2), nn.ReLU(),
+            nn.Linear(in_features=dim_h2, out_features=dim_h3), nn.ReLU(),
+        )
+        self.a = nn.Linear(in_features=dim_h3, out_features=self._output_din)
+        self.v = nn.Linear(in_features=dim_h3, out_features=1)
+
+    def forward(self, x):
+        t = self.net(x)
+        a = self.a(t)
+        v = self.v(t)
+        q = a - v
+        return q
+
+
+_DOUBLE = 0b01
+_DUELING = 0b10
+
+
 class DQNType(Enum):
-    T_DQN = "dqn"
-    T_DoubleDQN = "doubledqn"
-    T_DuelingDQN = "duelingdqn"
+    T_DQN = 0b00
+    T_DoubleDQN = _DOUBLE
+    T_DuelingDQN = _DUELING
+    T_DoubleDuelingDQN = _DOUBLE | _DUELING
 
     @classmethod
     def get_qdn_type(cls, qt: Union[str | DQNType]):
         if isinstance(qt, DQNType):
             return qt
         else:
+            nqt = 0b00
+            if qt.find('dueling') != -1:
+                nqt |= _DUELING
+            if qt.find('double') != -1:
+                nqt |= _DOUBLE
+            print(nqt)
             try:
-                return DQNType[qt]
-            except:
-                return DQNType.T_DQN
+                return DQNType(nqt)
+            except Exception as e:
+                raise Exception(f"Unexpected DQNType:{qt}, e:{e}")
+
+    def is_dueling(self):
+        return self.value & _DUELING != 0
+
+    def is_double(self):
+        return self.value & _DOUBLE != 0
 
 
 class DQN(RLBase):
 
-    def __init__(self, input_dim, actions_space, learning_rate=0.001, reward_decay=0.9, e_greedy=0.98,
-                 dqn_type: str | DQNType = DQNType.T_DQN):
+    def __init__(self, input_dim, actions_space, dqn_type: str | DQNType = DQNType.T_DQN,
+                 learning_rate=0.001, reward_decay=0.9, e_greedy=0.98):
         super(DQN, self).__init__(actions_space, learning_rate, reward_decay, e_greedy)
         self._dqn_type: DQNType = DQNType.get_qdn_type(dqn_type)
         self.input_dim = input_dim
         self.action_dim = action_dim = actions_space.n
-
-        self.q_net = QNet(input_dim, action_dim)
-        self.target_q_net = QNet(input_dim, action_dim)
+        NET = VAQNet if self._dqn_type.is_dueling() else QNet
+        self.q_net = NET(input_dim, action_dim)
+        self.target_q_net = NET(input_dim, action_dim)
         self.optimizer = torch.optim.Adam(self.q_net.parameters(), lr=learning_rate)
         self.device = torch.device('cpu')
         self.target_update = 10
@@ -93,12 +135,9 @@ class DQN(RLBase):
         predict = self.q_net(states)
         q_values = predict.gather(1, actions)
         # 下个状态的最大Q值
-        if self._dqn_type == DQNType.T_DQN:
+        if self._dqn_type.is_double():
             max_action = self.q_net(next_states).max(1)[1].view(-1, 1)
             max_next_q_values = self.target_q_net(next_states).gather(1, max_action)
-        elif self._dqn_type == DQNType.T_DuelingDQN:
-            # todo update this part
-            max_next_q_values = self.target_q_net(next_states).max(1)[0].view(-1, 1)
         else:
             max_next_q_values = self.target_q_net(next_states).max(1)[0].view(-1, 1)
 
