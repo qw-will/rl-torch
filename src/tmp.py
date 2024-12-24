@@ -1,20 +1,23 @@
-import time
-
-from tqdm import tqdm
+import copy
+import json
+import gymnasium as gym
+import numpy as np
+import pandas as pd
+from gymnasium.wrappers import FlattenObservation
 
 num_episodes = 10000
 
 if __name__ == '__main__':
-    # for i in range(10):
-    #     with tqdm(total=int(num_episodes / 10), desc='Iteration %d' % i) as pbar:
-    #         for episode in range(1000):
-    #             time.sleep(0.01)
-    #             pbar.update(1)
-    #             pbar.set_postfix({
-    #                 'episode': episode,
-    #                 "iteration": i,
-    #             })
+    env_name = 'FrozenLake-v1'
 
-    is_over = [1 if terminated or truncated else 0 for terminated, truncated in
-               zip([True,True, False], [False,True, False])]
-    print(is_over)
+    env = FlattenObservation(gym.make(
+        env_name, render_mode="human", desc=None, map_name="4x4", is_slippery=False, max_episode_steps=64
+    ))
+
+    obs = env.observation_space
+    acs = env.action_space
+    df = pd.DataFrame(columns=[_ for _ in range(4)], dtype=np.float32)
+    for i in range(10000):
+        df.loc[str(obs.sample()), acs.sample()] = i/100
+    print(df)
+    print(acs.sample())

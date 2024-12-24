@@ -1,10 +1,12 @@
 import gymnasium as gym
 import numpy as np
+import torch
 from gymnasium.wrappers import FlattenObservation
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 from rl import utils
+from rl.REINFORCE import REINFORCE
 from rl.dqn import DQN
 from rl.utils import ReplayBuffer
 
@@ -66,5 +68,53 @@ def dqnCartPole():
         plt.show()
 
 
+def learnReinforence():
+
+    learning_rate = 1e-3
+    num_episodes = 1000
+    hidden_dim = 128
+    gamma = 0.98
+
+    env_name = "CartPole-v1"
+    env = FlattenObservation(gym.make(env_name, render_mode="human"))
+    # env.seed(0)
+    torch.manual_seed(0)
+    state_dim = env.observation_space.shape[0]
+
+    agent = REINFORCE(state_dim, env.action_space)
+
+    return_list = []
+    for i in range(10):
+        with tqdm(total=int(num_episodes / 10), desc='Iteration %d' % i) as pbar:
+            for i_episode in range(int(num_episodes / 10)):
+                episode_return = 0
+                state, _ = env.reset()
+                done = False
+                states, actions, status_new, rewards = [], [], [], []
+                while not done:
+                    action = agent.choose_action(state)
+                    observation_new, reward, terminated, truncated, info, = env.step(action)
+                    states.append(state)
+                    actions.append(action)
+                    status_new.append(observation_new)
+                    rewards.append(reward)
+                    state = observation_new
+                    episode_return += reward
+
+                    if terminated or truncated:
+                        done = True
+
+                return_list.append(episode_return)
+                agent.learn(states, actions, rewards, status_new)
+                if (i_episode + 1) % 10 == 0:
+                    pbar.set_postfix({
+                        'episode':
+                            '%d' % (num_episodes / 10 * i + i_episode + 1),
+                        'return':
+                            '%.3f' % np.mean(return_list[-10:])
+                    })
+                pbar.update(1)
+
 if __name__ == '__main__':
-    dqnCartPole()
+    # dqnCartPole()
+    learnReinforence()
